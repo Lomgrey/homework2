@@ -37,12 +37,12 @@ async function loadMeteo() {
   const parser = new DOMParser();
 
   const xmlData = await fetch(meteoURL).then(r => r.text());
-  const currencyData = parser.parseFromString(xmlData, "application/xml");
+  const meteoData = parser.parseFromString(xmlData, "application/xml");
 
-  const forecasts = currencyData.querySelectorAll(
+  const forecasts = meteoData.querySelectorAll(
     "FORECAST[day][month][hour]"
   );
-  const temperatures = currencyData.querySelectorAll(
+  const temperatures = meteoData.querySelectorAll(
     "TEMPERATURE[max][min]"
   );
 
@@ -51,7 +51,7 @@ async function loadMeteo() {
     const forecast = forecasts.item(i);
     const temperature = temperatures.item(i);
     
-    const date = dateFromForecast(forecast);
+    const date = dateOfForecast(forecast);
 
     const max = temperature.getAttribute("max");
     const min = temperature.getAttribute("min");
@@ -62,7 +62,7 @@ async function loadMeteo() {
   return result;
 }
 
-function dateFromForecast(forecast){
+function dateOfForecast(forecast){
   const day = forecast.getAttribute("day");
   const month = forecast.getAttribute("month");
   const hour = forecast.getAttribute("hour");

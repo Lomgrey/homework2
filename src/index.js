@@ -2,7 +2,7 @@ import "babel-polyfill";
 import Chart from "chart.js";
 
 const currencyURL = "www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
-// const meteoURL = "/xml.meteoservice.ru/export/gismeteo/point/140.xml";
+const meteoURL = "xml.meteoservice.ru/export/gismeteo/point/140.xml";
 
 async function loadCurrency() {
   const response = await fetch(currencyURL);
@@ -32,16 +32,47 @@ function normalizeDataByCurrency(data, currency) {
   return result;
 }
 
+async function loadMeteoCurrency() {
+  const response = await fetch(meteoURL);
+  const xmlData = await response.text();
+
+  const parser = new DOMParser();
+  const currencyData = parser.parseFromString(xmlData, "application/xml");
+
+  const forecasts = currencyData.querySelectorAll(
+    "FORECAST[day][month][hour]"
+  );
+  const temperatures = currencyData.querySelectorAll(
+    "TEMPERATURE[max][min]"
+  );
+
+  const result = Object.create(null);
+  for (let i = 0; i < forecasts.length; i++) {
+    const f = forecasts.item(i);
+    const t = temperatures.item(i);
+    
+    const day = f.getAttribute("day");
+    const month = f.getAttribute("month");
+    const hour = f.getAttribute("hour");
+    const date = hour + "h. " + day + "." + month;
+
+    const max = t.getAttribute("max");
+    const min = t.getAttribute("min");
+    
+    result[date] = {max, min};
+  }
+
+  return result;
+}
+
 const buttonBuild = document.getElementById("btn");
 const canvasCtx = document.getElementById("out").getContext("2d");
 buttonBuild.addEventListener("click", async function() {
-  const currencyData = await loadCurrency();
-  const normalData = normalizeDataByCurrency(currencyData, "RUB");
-  const keys = Object.keys(normalData).sort((k1, k2) =>
-    compare(normalData[k1], normalData[k2])
-  );
-  const plotData = keys.map(key => normalData[key]);
+  const meteoData = await loadMeteoCurrency();
+  const keys = Object.keys(meteoData);
 
+  const maxValues = keys.map(key => meteoData[key].max);
+  const minValues = keys.map(key => meteoData[key].min);
   const chartConfig = {
     type: "line",
 
@@ -49,15 +80,21 @@ buttonBuild.addEventListener("click", async function() {
       labels: keys,
       datasets: [
         {
-          label: "Стоимость валюты в рублях",
+          label: "Минимальная температура",
+          backgroundColor: "rgb(180, 180, 255)",
+          borderColor: "rgb(150, 150, 255)",
+          data: minValues
+        },
+        {
+          label: "Максимальная температура",
           backgroundColor: "rgb(255, 20, 20)",
           borderColor: "rgb(180, 0, 0)",
-          data: plotData
+          data: maxValues
         }
       ]
     }
   };
-
+  
   if (window.chart) {
     chart.data.labels = chartConfig.data.labels;
     chart.data.datasets[0].data = chartConfig.data.datasets[0].data;
@@ -69,9 +106,3 @@ buttonBuild.addEventListener("click", async function() {
     window.chart = new Chart(canvasCtx, chartConfig);
   }
 });
-
-function compare(a, b) {
-  if (a > b) return 1;
-  if (a < b) return -1;
-  return 0;
-}

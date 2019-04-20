@@ -11,7 +11,6 @@ async function loadCurrency() {
   const currencyData = parser.parseFromString(xmlTest, "text/xml");
   // <Cube currency="USD" rate="1.1321" />
   const rates = currencyData.querySelectorAll("Cube[currency][rate]");
-
   const result = Object.create(null);
   for (let i = 0; i < rates.length; i++) {
     const rateTag = rates.item(i);
@@ -39,20 +38,13 @@ async function loadMeteo() {
   const xmlData = await fetch(meteoURL).then(r => r.text());
   const meteoData = parser.parseFromString(xmlData, "application/xml");
 
-  const forecasts = meteoData.querySelectorAll(
-    "FORECAST[day][month][hour]"
-  );
-  const temperatures = meteoData.querySelectorAll(
-    "TEMPERATURE[max][min]"
-  );
-
+  const forecasts = meteoData.querySelectorAll("FORECAST");
   const result = Object.create(null);
   for (let i = 0; i < forecasts.length; i++) {
     const forecast = forecasts.item(i);
-    const temperature = temperatures.item(i);
-    
-    const date = dateOfForecast(forecast);
+    const temperature = forecast.querySelector("TEMPERATURE[max][min]");
 
+    const date = dateOfForecast(forecast);
     const max = temperature.getAttribute("max");
     const min = temperature.getAttribute("min");
     
@@ -88,13 +80,13 @@ btnMeteoBuild.addEventListener("click", async function() {
       datasets: [
         {
           label: "Минимальная температура",
-          backgroundColor: "rgb(180, 180, 255)",
-          borderColor: "rgb(150, 150, 255)",
+          backgroundColor: "rgb(120, 80, 255)",
+          borderColor: "rgb(50, 10, 255)",
           data: minValues
         },
         {
           label: "Максимальная температура",
-          backgroundColor: "rgb(255, 20, 20)",
+          backgroundColor: "rgb(255, 80, 100)",
           borderColor: "rgb(180, 0, 0)",
           data: maxValues
         }
@@ -121,7 +113,7 @@ btnCurrencyBuild.addEventListener("click", async function() {
       datasets: [
         {
           label: "Стоимость валюты в рублях",
-          backgroundColor: "rgb(255, 20, 20)",
+          backgroundColor: "rgb(255, 80, 100)",
           borderColor: "rgb(180, 0, 0)",
           data: plotData
         }
@@ -133,7 +125,24 @@ btnCurrencyBuild.addEventListener("click", async function() {
 });
 
 function updateChart(chartConfig){
-  window.chart = new Chart(canvasCtx, chartConfig);
+  if (window.chart) {
+    updateLabels(chartConfig.data.labels);
+    updateDatasetrs(chartConfig.data.datasets);
+    chart.update({
+      duration: 800,
+      easing: "easeOutQuad"
+    });
+  } else {
+    window.chart = new Chart(canvasCtx, chartConfig);
+  }
+}
+
+function updateLabels(labels){
+  chart.data.labels = labels;
+}
+
+function updateDatasetrs(datasets) {
+  chart.data.datasets = datasets
 }
 
 function compare(a, b) {

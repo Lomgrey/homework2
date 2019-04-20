@@ -5,12 +5,13 @@ const currencyURL = "www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 const meteoURL = "xml.meteoservice.ru/export/gismeteo/point/140.xml";
 
 async function loadCurrency() {
-  const response = await fetch(currencyURL);
-  const xmlTest = await response.text();
   const parser = new DOMParser();
+  
+  const xmlTest = await fetch(currencyURL).then(r => r.text());
   const currencyData = parser.parseFromString(xmlTest, "text/xml");
   // <Cube currency="USD" rate="1.1321" />
   const rates = currencyData.querySelectorAll("Cube[currency][rate]");
+
   const result = Object.create(null);
   for (let i = 0; i < rates.length; i++) {
     const rateTag = rates.item(i);
@@ -19,7 +20,7 @@ async function loadCurrency() {
     result[currency] = rate;
   }
   result["EUR"] = 1;
-  // result["RANDOM"] = 1 + Math.random();
+
   return result;
 }
 
@@ -32,11 +33,10 @@ function normalizeDataByCurrency(data, currency) {
   return result;
 }
 
-async function loadMeteoCurrency() {
-  const response = await fetch(meteoURL);
-  const xmlData = await response.text();
-
+async function loadMeteo() {
   const parser = new DOMParser();
+
+  const xmlData = await fetch(meteoURL).then(r => r.text());
   const currencyData = parser.parseFromString(xmlData, "application/xml");
 
   const forecasts = currencyData.querySelectorAll(
@@ -48,16 +48,16 @@ async function loadMeteoCurrency() {
 
   const result = Object.create(null);
   for (let i = 0; i < forecasts.length; i++) {
-    const f = forecasts.item(i);
-    const t = temperatures.item(i);
+    const forecast = forecasts.item(i);
+    const temperature = temperatures.item(i);
     
-    const day = f.getAttribute("day");
-    const month = f.getAttribute("month");
-    const hour = f.getAttribute("hour");
+    const day = forecast.getAttribute("day");
+    const month = forecast.getAttribute("month");
+    const hour = forecast.getAttribute("hour");
     const date = hour + "h. " + day + "." + month;
 
-    const max = t.getAttribute("max");
-    const min = t.getAttribute("min");
+    const max = temperature.getAttribute("max");
+    const min = temperature.getAttribute("min");
     
     result[date] = {max, min};
   }
@@ -65,10 +65,12 @@ async function loadMeteoCurrency() {
   return result;
 }
 
-const buttonBuild = document.getElementById("btn");
+const btnMeteoBuild = document.getElementById("btnMeteo");
+const btnCurrencyBuild = document.getElementById("btnCurrency");
 const canvasCtx = document.getElementById("out").getContext("2d");
-buttonBuild.addEventListener("click", async function() {
-  const meteoData = await loadMeteoCurrency();
+
+btnMeteoBuild.addEventListener("click", async function() {
+  const meteoData = await loadMeteo();
   const keys = Object.keys(meteoData);
 
   const maxValues = keys.map(key => meteoData[key].max);
@@ -95,14 +97,42 @@ buttonBuild.addEventListener("click", async function() {
     }
   };
   
-  if (window.chart) {
-    chart.data.labels = chartConfig.data.labels;
-    chart.data.datasets[0].data = chartConfig.data.datasets[0].data;
-    chart.update({
-      duration: 800,
-      easing: "easeOutBounce"
-    });
-  } else {
-    window.chart = new Chart(canvasCtx, chartConfig);
-  }
+  updateChart(chartConfig);
 });
+
+btnCurrencyBuild.addEventListener("click", async function() {
+  const currencyData = await loadCurrency();
+  const normalData = normalizeDataByCurrency(currencyData, "RUB");
+  const keys = Object.keys(normalData).sort((k1, k2) =>
+    compare(normalData[k1], normalData[k2])
+  );
+  const plotData = keys.map(key => normalData[key]);
+
+  const chartConfig = {
+    type: "line",
+
+    data: {
+      labels: keys,
+      datasets: [
+        {
+          label: "Стоимость валюты в рублях",
+          backgroundColor: "rgb(255, 20, 20)",
+          borderColor: "rgb(180, 0, 0)",
+          data: plotData
+        }
+      ]
+    }
+  };
+
+  updateChart(chartConfig);
+});
+
+function updateChart(chartConfig){
+  window.chart = new Chart(canvasCtx, chartConfig);
+}
+
+function compare(a, b) {
+  if (a > b) return 1;
+  if (a < b) return -1;
+  return 0;
+}

@@ -1,63 +1,24 @@
 import "babel-polyfill";
 import Chart from "chart.js";
 
-const currencyURL = "www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+// const currencyURL = "www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 const meteoURL = "xml.meteoservice.ru/export/gismeteo/point/140.xml";
 
-async function loadCurrency() {
-  const response = await fetch(currencyURL);
-  const xmlTest = await response.text();
+async function loadMeteo() {
   const parser = new DOMParser();
-  const currencyData = parser.parseFromString(xmlTest, "text/xml");
-  // <Cube currency="USD" rate="1.1321" />
-  const rates = currencyData.querySelectorAll("Cube[currency][rate]");
-  const result = Object.create(null);
-  for (let i = 0; i < rates.length; i++) {
-    const rateTag = rates.item(i);
-    const rate = rateTag.getAttribute("rate");
-    const currency = rateTag.getAttribute("currency");
-    result[currency] = rate;
-  }
-  result["EUR"] = 1;
-  // result["RANDOM"] = 1 + Math.random();
-  return result;
-}
 
-function normalizeDataByCurrency(data, currency) {
-  const result = Object.create(null);
-  const value = data[currency];
-  for (const key of Object.keys(data)) {
-    result[key] = value / data[key];
-  }
-  return result;
-}
+  const xmlData = await fetch(meteoURL).then(r => r.text());
+  const meteoData = parser.parseFromString(xmlData, "application/xml");
 
-async function loadMeteoCurrency() {
-  const response = await fetch(meteoURL);
-  const xmlData = await response.text();
-
-  const parser = new DOMParser();
-  const currencyData = parser.parseFromString(xmlData, "application/xml");
-
-  const forecasts = currencyData.querySelectorAll(
-    "FORECAST[day][month][hour]"
-  );
-  const temperatures = currencyData.querySelectorAll(
-    "TEMPERATURE[max][min]"
-  );
-
+  const forecasts = meteoData.querySelectorAll("FORECAST");
   const result = Object.create(null);
   for (let i = 0; i < forecasts.length; i++) {
-    const f = forecasts.item(i);
-    const t = temperatures.item(i);
-    
-    const day = f.getAttribute("day");
-    const month = f.getAttribute("month");
-    const hour = f.getAttribute("hour");
-    const date = hour + "h. " + day + "." + month;
+    const forecast = forecasts.item(i);
+    const temperature = forecast.querySelector("TEMPERATURE[max][min]");
 
-    const max = t.getAttribute("max");
-    const min = t.getAttribute("min");
+    const date = dateOfForecast(forecast);
+    const max = temperature.getAttribute("max");
+    const min = temperature.getAttribute("min");
     
     result[date] = {max, min};
   }
@@ -65,10 +26,18 @@ async function loadMeteoCurrency() {
   return result;
 }
 
+function dateOfForecast(forecast){
+  const day = forecast.getAttribute("day");
+  const month = forecast.getAttribute("month");
+  const hour = forecast.getAttribute("hour");
+
+  return hour + "h. " + day + "." + month;
+}
+
 const buttonBuild = document.getElementById("btn");
 const canvasCtx = document.getElementById("out").getContext("2d");
 buttonBuild.addEventListener("click", async function() {
-  const meteoData = await loadMeteoCurrency();
+  const meteoData = await loadMeteo();
   const keys = Object.keys(meteoData);
 
   const maxValues = keys.map(key => meteoData[key].max);
@@ -95,14 +64,26 @@ buttonBuild.addEventListener("click", async function() {
     }
   };
   
+  updateChart(chartConfig);
+});
+
+function updateChart(chartConfig){
   if (window.chart) {
-    chart.data.labels = chartConfig.data.labels;
-    chart.data.datasets[0].data = chartConfig.data.datasets[0].data;
+    updateLabels(chartConfig.data.labels);
+    updateDatasetrs(chartConfig.data.datasets);
     chart.update({
       duration: 800,
-      easing: "easeOutBounce"
+      easing: "easeOutQuad"
     });
   } else {
     window.chart = new Chart(canvasCtx, chartConfig);
   }
-});
+}
+
+function updateLabels(labels){
+  chart.data.labels = labels;
+}
+
+function updateDatasetrs(datasets) {
+  chart.data.datasets = datasets
+}

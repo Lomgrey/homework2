@@ -51,10 +51,7 @@ async function loadMeteo() {
     const forecast = forecasts.item(i);
     const temperature = temperatures.item(i);
     
-    const day = forecast.getAttribute("day");
-    const month = forecast.getAttribute("month");
-    const hour = forecast.getAttribute("hour");
-    const date = hour + "h. " + day + "." + month;
+    const date = dateFromForecast(forecast);
 
     const max = temperature.getAttribute("max");
     const min = temperature.getAttribute("min");
@@ -63,6 +60,14 @@ async function loadMeteo() {
   }
 
   return result;
+}
+
+function dateFromForecast(forecast){
+  const day = forecast.getAttribute("day");
+  const month = forecast.getAttribute("month");
+  const hour = forecast.getAttribute("hour");
+
+  return hour + "h. " + day + "." + month;
 }
 
 const btnMeteoBuild = document.getElementById("btnMeteo");
